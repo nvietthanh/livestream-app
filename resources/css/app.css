@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+[x-cloak] {
+    display: none;
+}
+
+body {
+    margin: 0 32px;
+}
+button {
+    border: 1px solid #000;
+    padding: 12px 8px;
+    border-radius: 8px;
+}
