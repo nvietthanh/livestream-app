@@ -1,0 +1,47 @@
+name: Code Check Before Merge
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - staging
+      - master
+  push:
+    branches:
+      - develop
+      - staging
+      - master
+
+jobs:
+  phpcs-checker:
+    name: PHP CodeSniffer
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download PHP_CodeSniffer
+        run: |
+          curl -OL https://squizlabs.github.io/PHP_CodeSniffer/phpcs.phar
+          chmod +x phpcs.phar
+
+      - name: Run PHP_CodeSniffer
+        run: php phpcs.phar --standard=phpcs.xml.dist
+
+  eslint-checker:
+    name: Vue.js ESLint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run ESLint
+        run: npm run lint
