@@ -12,9 +12,13 @@ use Illuminate\Queue\SerializesModels;
 
 class RoomStreamingOfferEvent implements ShouldBroadcast
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+    use Dispatchable;
+    use InteractsWithSockets;
+    use SerializesModels;
 
-    public $roomId, $userId, $data;
+    public $roomId;
+    public $userId;
+    public $data;
 
     /**
      * Create a new event instance.

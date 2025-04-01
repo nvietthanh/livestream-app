@@ -12,7 +12,9 @@ use Illuminate\Queue\SerializesModels;
 
 class SendMessageEvent implements ShouldBroadcast
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+    use Dispatchable;
+    use InteractsWithSockets;
+    use SerializesModels;
 
     public $channelId;
     public $data;

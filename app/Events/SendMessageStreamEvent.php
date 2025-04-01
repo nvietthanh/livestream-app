@@ -12,9 +12,13 @@ use Illuminate\Queue\SerializesModels;
 
 class SendMessageStreamEvent implements ShouldBroadcast
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+    use Dispatchable;
+    use InteractsWithSockets;
+    use SerializesModels;
 
-    public $content, $roomId, $user;
+    public $content;
+    public $roomId;
+    public $user;
 
     /**
      * Create a new event instance.

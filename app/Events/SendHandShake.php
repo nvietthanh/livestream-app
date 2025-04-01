@@ -13,9 +13,14 @@ use Illuminate\Queue\SerializesModels;
 
 class SendHandShake implements ShouldBroadcast
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+    use Dispatchable;
+    use InteractsWithSockets;
+    use SerializesModels;
 
-    public $data, $senderId, $reciverId, $caller;
+    public $data;
+    public $senderId;
+    public $reciverId;
+    public $caller;
 
     /**
      * Create a new event instance.

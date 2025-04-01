@@ -2,7 +2,6 @@
 
 use Illuminate\Support\Facades\Broadcast;
 
-
 Broadcast::channel('client-channel.{id}', function ($user) {
     return ['id' => $user->id, 'name' => $user->name];
 });

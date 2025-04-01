@@ -31,7 +31,7 @@
                         </div>
                     </div>
                     <div class="flex w-full gap-2">
-                        <input type="text" v-model="formData.content" class="w-full" @keypress.enter="sendMessage()" />
+                        <input v-model="formData.content" type="text" class="w-full" @keypress.enter="sendMessage()" />
                         <button @click="sendMessage()">Send</button>
                     </div>
                 </div>
@@ -39,7 +39,7 @@
             <div v-if="true" class="flex flex-col">
                 <div class="font-bold mt-[8px] mb-[12px]">List user: ({{ listUsers.length }})</div>
                 <div class="h-full max-h-[100%] overflow-y-scroll">
-                    <div class="px-[8px] py-[12px] border-[1px]" v-for="(item, index) in listUsers" :key="index">
+                    <div v-for="(item, index) in listUsers" :key="index" class="px-[8px] py-[12px] border-[1px]">
                         {{ item.name }}
                     </div>
                 </div>
@@ -49,6 +49,7 @@
 </template>
 <script>
 import axios from "axios";
+import Echo from 'laravel-echo';
 
 const servers = {
     iceServers: [
@@ -106,6 +107,7 @@ export default {
                     console.log('Leaving user', user)
                     this.listUsers = this.listUsers.filter((item) => item.id != user.id);
                 })
+            console.log("🚀 ~ handlePusher ~ channel:", channel)
             Echo.private('streaming-room.' + this.channelId)
                 .listen('SendMessageStreamEvent', (data) => {
                     this.listMessage.unshift(data)
