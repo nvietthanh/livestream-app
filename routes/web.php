@@ -7,7 +7,6 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-
 Route::middleware([
     'auth:sanctum',
     config('jetstream.auth_session'),
@@ -15,7 +14,6 @@ Route::middleware([
 ])->group(function () {
     Route::get('/', [CallController::class, 'listOnline'])->name('index');
     Route::post('handshake', [CallController::class, 'handshake'])->name('handshake');
-
 
     Route::get('/streaming', [LiveStreamController::class, 'liveStream'])->name('room.livestream');
     Route::get('/streaming/{id}', [LiveStreamController::class, 'streaming'])->name('room.streaming');

@@ -1,6 +1,5 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
-import Welcome from '@/Components/Welcome.vue';
 // import BroadcastService from '@/Pages/Broadcaster.vue';
 // import Viewer from '@/Pages/Viewer.vue';
 </script>

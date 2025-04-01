@@ -10,11 +10,6 @@ use Inertia\Inertia;
 
 class LiveStreamController extends Controller
 {
-    public function store()
-    {
-
-    }
-
     public function liveStream()
     {
         return Inertia::render('Streaming/Livestream');
