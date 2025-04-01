@@ -135,7 +135,7 @@ export default {
             this.peerConnection = new RTCPeerConnection(servers)
             this.peerConnection.addEventListener("track", e => {
                 this.$refs.remoteView.srcObject = e.streams[0];
-                this.$refs.remoteView.play();
+                this.$refs.remoteView?.play();
             });
             this.peerConnection.addEventListener("icecandidate", event => {
                 let candidate = null
