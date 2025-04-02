@@ -1,4 +1,4 @@
-name: Build & Push Docker Images
+name: CI/CD Pipeline
 
 on:
   push:
@@ -6,86 +6,80 @@ on:
       - develop
       - staging
       - master
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME_PHP: ghcr.io/${{ github.repository }}/php
-  IMAGE_NAME_NGINX: ghcr.io/${{ github.repository }}/nginx
+  tags:
+    - '*'
 
 jobs:
-  build-image-php:
+  get-vendors:
     runs-on: ubuntu-latest
+    container: composer
     steps:
-      - name: Checkout Code
+      - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-ansi --no-interaction --no-progress --no-scripts --ignore-platform-reqs
+      - name: Copy .env file
+        run: cp .env.example .env
+      - name: Upload vendor
+        uses: actions/upload-artifact@v4
+        with:
+          name: vendor
+          path: |
+            vendor/
+            .env
 
-      - name: Set Environment Variables
-        run: |
-          if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
-            echo "BUILD_VERSION=dev" >> $GITHUB_ENV
-          elif [[ "${{ github.ref }}" == "refs/heads/staging" ]]; then
-            echo "BUILD_VERSION=staging" >> $GITHUB_ENV
-          else
-            echo "BUILD_VERSION=production" >> $GITHUB_ENV
-          fi
-
-      - name: Log in to GitHub Container Registry
-        run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
-
-      - name: Pull Existing PHP Image (If Exists)
-        run: docker pull ${{ env.IMAGE_NAME_PHP }}:${{ env.BUILD_VERSION }} || true
-
-      - name: Build PHP Image
-        run: |
-          docker build --pull \
-            --cache-from ${{ env.IMAGE_NAME_PHP }}:${{ env.BUILD_VERSION }} \
-            --file ./docker/Dockerfile \
-            --target app-ci \
-            -t ${{ env.IMAGE_NAME_PHP }}:${{ github.sha }} .
-
-      - name: Tag & Push PHP Image
-        run: |
-          docker tag ${{ env.IMAGE_NAME_PHP }}:${{ github.sha }} ${{ env.IMAGE_NAME_PHP }}:${{ env.BUILD_VERSION }}
-          docker push ${{ env.IMAGE_NAME_PHP }}:${{ env.BUILD_VERSION }}
-
-  build-image-nginx:
+  build-assets:
     runs-on: ubuntu-latest
+    container: node:18-alpine
+    needs: get-vendors
     steps:
-      - name: Checkout Code
+      - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Set Environment Variables
+      - name: Download vendor
+        uses: actions/download-artifact@v4
+        with:
+          name: vendor
+          path: .
+      - name: Setup .env
         run: |
-          if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
-            echo "BUILD_VERSION=dev" >> $GITHUB_ENV
-          elif [[ "${{ github.ref }}" == "refs/heads/staging" ]]; then
-            echo "BUILD_VERSION=staging" >> $GITHUB_ENV
-          else
-            echo "BUILD_VERSION=production" >> $GITHUB_ENV
-          fi
+          echo "VITE_APP_NAME=NihonbashiArt" >> .env
+          echo "API_TINYMCE_KEY=${{ secrets.API_TINYMCE_KEY }}" >> .env
+      - name: Install dependencies
+        run: npm install
+      - name: Build assets
+        run: npm run build
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-build
+          path: public/build/
 
-      - name: Log in to GitHub Container Registry
-        run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
-
-      - name: Pull Existing Nginx Image (If Exists)
-        run: docker pull ${{ env.IMAGE_NAME_NGINX }}:${{ env.BUILD_VERSION }} || true
-
-      - name: Build Nginx Image
-        run: |
-          docker build --pull \
-            --cache-from ${{ env.IMAGE_NAME_NGINX }}:${{ env.BUILD_VERSION }} \
-            --file ./docker/Dockerfile \
-            --target web-ci \
-            -t ${{ env.IMAGE_NAME_NGINX }}:${{ github.sha }} .
-
-      - name: Tag & Push Nginx Image
-        run: |
-          docker tag ${{ env.IMAGE_NAME_NGINX }}:${{ github.sha }} ${{ env.IMAGE_NAME_NGINX }}:${{ env.BUILD_VERSION }}
-          docker push ${{ env.IMAGE_NAME_NGINX }}:${{ env.BUILD_VERSION }}
-
-  cleanup:
+  build-image:
     runs-on: ubuntu-latest
-    needs: [build-image-php, build-image-nginx]
+    needs:
+      - get-vendors
+      - build-assets
     steps:
-      - name: Clean up Docker Cache
-        run: docker image prune -af
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set Build Version
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/master" ]; then
+            echo "BUILD_VERSION=latest" >> $GITHUB_ENV;
+          else
+            echo "BUILD_VERSION=${GITHUB_REF##*/}" >> $GITHUB_ENV;
+          fi
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+      - name: Build & Push PHP Image
+        run: |
+          docker pull ghcr.io/${{ github.repository }}/php:${{ env.BUILD_VERSION }} || true
+          docker build --pull --cache-from ghcr.io/${{ github.repository }}/php:${{ env.BUILD_VERSION }} --file ./docker/Dockerfile --target app-ci -t ghcr.io/${{ github.repository }}/php:${{ github.sha }} .
+          docker tag ghcr.io/${{ github.repository }}/php:${{ github.sha }} ghcr.io/${{ github.repository }}/php:${{ env.BUILD_VERSION }}
+          docker push ghcr.io/${{ github.repository }}/php:${{ env.BUILD_VERSION }}
+      - name: Build & Push Nginx Image
+        run: |
+          docker pull ghcr.io/${{ github.repository }}/nginx:${{ env.BUILD_VERSION }} || true
+          docker build --pull --cache-from ghcr.io/${{ github.repository }}/nginx:${{ env.BUILD_VERSION }} --file ./docker/Dockerfile --target web-ci -t ghcr.io/${{ github.repository }}/nginx:${{ github.sha }} .
+          docker tag ghcr.io/${{ github.repository }}/nginx:${{ github.sha }} ghcr.io/${{ github.repository }}/nginx:${{ env.BUILD_VERSION }}
+          docker push ghcr.io/${{ github.repository }}/nginx:${{ env.BUILD_VERSION }}
