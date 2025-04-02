@@ -7,6 +7,10 @@ on:
     tags:
       - '*'
 
+env:
+  IMAGE_PHP: ghcr.io/${{ github.repository }}/php
+  IMAGE_NGINX: ghcr.io/${{ github.repository }}/nginx
+
 jobs:
   get-vendors:
     runs-on: ubuntu-latest
@@ -73,9 +77,9 @@ jobs:
 
       - name: Build and Push PHP Image
         run: |
-          docker build --pull --cache-from ghcr.io/${{ github.repository }}/php:${{ env.BUILD_VERSION }} --file ./docker/Dockerfile --target app-ci -t ghcr.io/${{ github.repository }}/php:${{ github.sha }} .
-          docker tag ghcr.io/${{ github.repository }}/php:${{ github.sha }} ghcr.io/${{ github.repository }}/php:${{ env.BUILD_VERSION }}
-          docker push ghcr.io/${{ github.repository }}/php:${{ env.BUILD_VERSION }}
+          docker build --pull --cache-from $IMAGE_PHP:${{ env.BUILD_VERSION }} --file ./docker/Dockerfile --target app-ci -t $IMAGE_PHP:${{ github.sha }} .
+          docker tag $IMAGE_PHP:${{ github.sha }} $IMAGE_PHP:${{ env.BUILD_VERSION }}
+          docker push $IMAGE_PHP:${{ env.BUILD_VERSION }}
 
   build-nginx:
     runs-on: ubuntu-latest
@@ -99,7 +103,7 @@ jobs:
 
       - name: Build and Push Nginx Image
         run: |
-          docker pull ghcr.io/${{ github.repository }}/nginx:${{ env.BUILD_VERSION }} || true
-          docker build --pull --cache-from ghcr.io/${{ github.repository }}/nginx:${{ env.BUILD_VERSION }} --file ./docker/Dockerfile --target web-ci -t ghcr.io/${{ github.repository }}/nginx:${{ github.sha }} .
-          docker tag ghcr.io/${{ github.repository }}/nginx:${{ github.sha }} ghcr.io/${{ github.repository }}/nginx:${{ env.BUILD_VERSION }}
-          docker push ghcr.io/${{ github.repository }}/nginx:${{ env.BUILD_VERSION }}
+          docker pull $IMAGE_NGINX:${{ env.BUILD_VERSION }} || true
+          docker build --pull --cache-from $IMAGE_NGINX:${{ env.BUILD_VERSION }} --file ./docker/Dockerfile --target web-ci -t $IMAGE_NGINX:${{ github.sha }} .
+          docker tag $IMAGE_NGINX:${{ github.sha }} $IMAGE_NGINX:${{ env.BUILD_VERSION }}
+          docker push $IMAGE_NGINX:${{ env.BUILD_VERSION }}

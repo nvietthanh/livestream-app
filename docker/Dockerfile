@@ -1,7 +1,7 @@
 # ========================
 # Runtime
 # ========================
-FROM oanhnn/php:8.3-fpm-alpine AS runtime
+FROM php:8.3-fpm-alpine AS runtime
 
 # RUN apk add --update --no-cache faac bash
 
@@ -80,7 +80,7 @@ RUN set -eux; \
 # ========================
 # Build web image
 # ========================
-FROM nginx:stable-alpine as web
+FROM nginx:stable-alpine AS web
 
 ENV PHP_FPM_ENDPOINT=localhost:9000
 
