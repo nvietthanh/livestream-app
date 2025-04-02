@@ -96,6 +96,7 @@ COPY --chown=www-data:www-data   .                  /var/www
 
 RUN set -eux; \
     chown -R www-data:www-data /var/www; \
+    cd /var/www && composer install --no-interaction --no-dev --prefer-dist; \
     su-exec www-data php /var/www/artisan package:discover; \
     su-exec www-data php /var/www/artisan storage:link;
 
