@@ -1,22 +1,24 @@
 # ========================
 # Runtime
 # ========================
-FROM oanhnn/php:8.3-fpm-alpine AS runtime
+FROM oanhnn/php:8.2-fpm-alpine AS runtime
 
 # RUN apk add --update --no-cache faac bash
 
 WORKDIR /var/www
 
 COPY docker/php/start-container /usr/local/bin/
+COPY docker/php/cron.sh /usr/local/bin/
 
 RUN set -eux; \
     chmod a+x /usr/local/bin/start-container ; \
+    chmod a+x /usr/local/bin/cron.sh ; \
     apk --update --no-cache add \
         curl \
         su-exec \
+        && docker-php-ext-install exif \
+        && docker-php-ext-enable exif \
     ;
-
-RUN docker-php-ext-install exif;
 
 ENTRYPOINT ["/usr/local/bin/start-container"]
 CMD ["php-fpm"]
@@ -49,11 +51,10 @@ RUN apk add --update --no-cache git build-base
 WORKDIR /var/www
 
 COPY package*.json ./
-COPY --from=vendor /var/www/vendor ./vendor
 
 RUN npm ci --quiet
 
-COPY postcss.config.js vite.config.js tailwind.config.js ./
+COPY postcss.config.js vite.config.js ./
 COPY resources      ./resources
 COPY public         ./public
 
@@ -78,7 +79,7 @@ RUN set -eux; \
 # ========================
 # Build web image
 # ========================
-FROM nginx:stable-alpine as web
+FROM nginx:stable-alpine AS web
 
 ENV PHP_FPM_ENDPOINT=localhost:9000
 
