@@ -16,53 +16,82 @@ jobs:
     runs-on: ubuntu-latest
     container: composer
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
-      - name: Install dependencies
+
+      - name: Install Dependencies
         run: composer install --prefer-dist --no-ansi --no-interaction --no-progress --no-scripts --ignore-platform-reqs
-      - name: Copy .env file
+
+      - name: Copy Environment File
         run: cp .env.example .env
-      - name: Upload vendor
+
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: vendor
+          name: vendors
           path: |
             vendor/
             .env
+          retention-days: 1
 
   build-assets:
     runs-on: ubuntu-latest
-    container: node:18-alpine
     needs: get-vendors
+    container: node:18-alpine
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
-      - name: Download vendor
+
+      - name: Download Vendors
         uses: actions/download-artifact@v4
         with:
-          name: vendor
-          path: .
-      - name: Setup .env
+          name: vendors
+
+      - name: Set Environment Variables
         run: |
           echo "VITE_APP_NAME=Streaming" >> .env
-      - name: Install dependencies
+          echo "VITE_PUSHER_APP_KEY=${{ secrets.VITE_PUSHER_APP_KEY }}" >> .env
+          echo "VITE_PUSHER_HOST=${{ secrets.VITE_PUSHER_HOST }}" >> .env
+          echo "VITE_PUSHER_PORT=${{ secrets.VITE_PUSHER_PORT }}" >> .env
+          echo "VITE_PUSHER_SCHEME=${{ secrets.VITE_PUSHER_SCHEME }}" >> .env
+          echo "VITE_PUSHER_APP_CLUSTER=${{ secrets.VITE_PUSHER_APP_CLUSTER }}" >> .env
+
+      - name: Install Node.js Dependencies
         run: npm install
-      - name: Build assets
+
+      - name: Build Assets
         run: npm run build
-      - name: Upload build artifacts
+
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: public-build
+          name: build-assets
           path: public/build/
+          retention-days: 1
 
-  build-php:
+  build-image-php:
+    name: Build PHP Image
     runs-on: ubuntu-latest
     needs:
       - get-vendors
       - build-assets
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Download Vendors
+        uses: actions/download-artifact@v4
+        with:
+          name: vendors
+
+      - name: Download Build Assets
+        uses: actions/download-artifact@v4
+        with:
+          name: build-assets
+          path: public/build
+
+      - name: Kiểm tra thư mục vendor và build-assets
+        run: ls -alR
 
       - name: Log in to GitHub Container Registry
         run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
@@ -70,25 +99,43 @@ jobs:
       - name: Set Build Version
         run: |
           if [ "${{ github.ref }}" == "refs/heads/master" ]; then
-            echo "BUILD_VERSION=latest" >> $GITHUB_ENV;
+            echo "BUILD_VERSION=latest" >> $GITHUB_ENV
           else
-            echo "BUILD_VERSION=${GITHUB_REF##*/}" >> $GITHUB_ENV;
+            echo "BUILD_VERSION=${GITHUB_REF##*/}" >> $GITHUB_ENV
           fi
+
+      - name: Pull Existing PHP Image (if exists)
+        run: docker pull $IMAGE_PHP:${{ env.BUILD_VERSION }} || true
 
       - name: Build and Push PHP Image
         run: |
-          docker build --pull --cache-from $IMAGE_PHP:${{ env.BUILD_VERSION }} --file ./docker/Dockerfile --target app-ci -t $IMAGE_PHP:${{ github.sha }} .
+          docker build --pull --cache-from $IMAGE_PHP:${{ env.BUILD_VERSION }} \
+          --file ./docker/Dockerfile --target app-ci \
+          -t $IMAGE_PHP:${{ github.sha }} .
+
           docker tag $IMAGE_PHP:${{ github.sha }} $IMAGE_PHP:${{ env.BUILD_VERSION }}
           docker push $IMAGE_PHP:${{ env.BUILD_VERSION }}
 
-  build-nginx:
+  build-image-nginx:
+    name: Build Nginx Image
     runs-on: ubuntu-latest
     needs:
       - get-vendors
       - build-assets
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Download Vendors
+        uses: actions/download-artifact@v4
+        with:
+          name: vendors
+
+      - name: Download Build Assets
+        uses: actions/download-artifact@v4
+        with:
+          name: build-assets
+          path: public/build
 
       - name: Log in to GitHub Container Registry
         run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
@@ -96,14 +143,19 @@ jobs:
       - name: Set Build Version
         run: |
           if [ "${{ github.ref }}" == "refs/heads/master" ]; then
-            echo "BUILD_VERSION=latest" >> $GITHUB_ENV;
+            echo "BUILD_VERSION=latest" >> $GITHUB_ENV
           else
-            echo "BUILD_VERSION=${GITHUB_REF##*/}" >> $GITHUB_ENV;
+            echo "BUILD_VERSION=${GITHUB_REF##*/}" >> $GITHUB_ENV
           fi
+
+      - name: Pull Existing Nginx Image (if exists)
+        run: docker pull $IMAGE_NGINX:${{ env.BUILD_VERSION }} || true
 
       - name: Build and Push Nginx Image
         run: |
-          docker pull $IMAGE_NGINX:${{ env.BUILD_VERSION }} || true
-          docker build --pull --cache-from $IMAGE_NGINX:${{ env.BUILD_VERSION }} --file ./docker/Dockerfile --target web-ci -t $IMAGE_NGINX:${{ github.sha }} .
+          docker build --pull --cache-from $IMAGE_NGINX:${{ env.BUILD_VERSION }} \
+          --file ./docker/Dockerfile --target web-ci \
+          -t $IMAGE_NGINX:${{ github.sha }} .
+
           docker tag $IMAGE_NGINX:${{ github.sha }} $IMAGE_NGINX:${{ env.BUILD_VERSION }}
           docker push $IMAGE_NGINX:${{ env.BUILD_VERSION }}

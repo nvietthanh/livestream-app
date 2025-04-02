@@ -94,7 +94,6 @@ FROM runtime AS app-ci
 
 COPY --chown=root:root           docker/php/php.ini /usr/local/etc/php/conf.d/php.ini
 COPY --chown=www-data:www-data   .                  /var/www
-COPY --from=vendor   --chown=www-data:www-data   /var/www/vendor  /var/www/vendor
 
 RUN set -eux; \
     chown -R www-data:www-data /var/www; \
