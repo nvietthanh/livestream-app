@@ -56,6 +56,7 @@ COPY --from=vendor /var/www/vendor ./vendor
 RUN npm ci --quiet
 
 COPY postcss.config.js vite.config.js tailwind.config.js ./
+RUN [ -f ./.env.build ] && cp ./.env.build ./.env || echo "File .env.build not found"
 COPY resources      ./resources
 COPY public         ./public
 

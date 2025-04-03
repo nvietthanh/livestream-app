@@ -7,12 +7,17 @@ on:
     tags:
       - '*'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   IMAGE_PHP: ghcr.io/${{ github.repository }}/php
   IMAGE_NGINX: ghcr.io/${{ github.repository }}/nginx
 
 jobs:
   get-vendors:
+    name: Build vendor
     runs-on: ubuntu-latest
     container: composer
     steps:
@@ -35,6 +40,7 @@ jobs:
           retention-days: 1
 
   build-assets:
+    name: Build asset
     runs-on: ubuntu-latest
     needs: get-vendors
     container: node:18-alpine
@@ -50,11 +56,11 @@ jobs:
       - name: Set Environment Variables
         run: |
           echo "VITE_APP_NAME=Streaming" >> .env
-          echo "VITE_PUSHER_APP_KEY=${{ secrets.VITE_PUSHER_APP_KEY }}" >> .env
-          echo "VITE_PUSHER_HOST=${{ secrets.VITE_PUSHER_HOST }}" >> .env
-          echo "VITE_PUSHER_PORT=${{ secrets.VITE_PUSHER_PORT }}" >> .env
-          echo "VITE_PUSHER_SCHEME=${{ secrets.VITE_PUSHER_SCHEME }}" >> .env
-          echo "VITE_PUSHER_APP_CLUSTER=${{ secrets.VITE_PUSHER_APP_CLUSTER }}" >> .env
+          echo "VITE_PUSHER_APP_KEY=${{ vars.VITE_PUSHER_APP_KEY }}" >> .env
+          echo "VITE_PUSHER_HOST=${{ vars.VITE_PUSHER_HOST }}" >> .env
+          echo "VITE_PUSHER_PORT=${{ vars.VITE_PUSHER_PORT }}" >> .env
+          echo "VITE_PUSHER_SCHEME=${{ vars.VITE_PUSHER_SCHEME }}" >> .env
+          echo "VITE_PUSHER_APP_CLUSTER=${{ vars.VITE_PUSHER_APP_CLUSTER }}" >> .env
 
       - name: Install Node.js Dependencies
         run: npm install
@@ -159,3 +165,33 @@ jobs:
 
           docker tag $IMAGE_NGINX:${{ github.sha }} $IMAGE_NGINX:${{ env.BUILD_VERSION }}
           docker push $IMAGE_NGINX:${{ env.BUILD_VERSION }}
+
+  cleanup:
+    name: Cleanup Cache and Artifacts
+    runs-on: ubuntu-latest
+    needs:
+      - build-image-php
+      - build-image-nginx
+    if: always()
+    steps:
+      - name: Clean up Artifacts
+        run: |
+          echo "Cleaning up artifacts..."
+          rm -rf ./public/build/
+          rm -rf ./vendor/
+          rm -rf .env
+
+      - name: Clean up Cache
+        run: |
+          echo "Cleaning up cache..."
+          rm -rf ~/.cache/*
+
+      - name: Delete Artifacts from GitHub
+        run: |
+          ARTIFACTS_URL="https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts"
+          ARTIFACTS=$(curl -s -H "Authorization: Bearer ${{ secrets.GHCR_TOKEN }}" $ARTIFACTS_URL | jq -r '.artifacts[] | .id')
+
+          for ARTIFACT_ID in $ARTIFACTS; do
+            echo "Deleting artifact with ID: $ARTIFACT_ID"
+            curl -X DELETE -H "Authorization: Bearer ${{ secrets.GHCR_TOKEN }}" "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID"
+          done
