@@ -4,19 +4,27 @@ on:
   workflow_dispatch:
 
 permissions:
-  actions: write  # cần 'write' để xóa artifacts
+  actions: write  # Cần quyền write để xóa artifacts
   contents: read
 
 jobs:
   delete-artifacts:
     runs-on: ubuntu-latest
     steps:
+      # Cài đặt GitHub CLI
       - name: Setup GitHub CLI
-        uses: cli/cli-action@v2
+        run: |
+          sudo apt-get update
+          sudo apt-get install gh -y
 
+      # Đăng nhập vào GitHub CLI với token
+      - name: Authenticate with GitHub CLI
+        run: gh auth login --with-token <<< ${{ secrets.GHCR_TOKEN }}
+
+      # Xóa tất cả artifacts
       - name: Delete all artifacts
         run: |
-          gh api repos/${{ github.repository }}/actions/artifacts | jq -r '.artifacts[].id' | while read id; do
+          gh api repos/${{ github.repository }}/actions/artifacts --jq '.artifacts[].id' | while read id; do
             echo "Deleting artifact ID $id"
             gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/$id
           done
