@@ -1,17 +1,22 @@
-name: Delete artifacts now
+name: Delete Artifacts Now
 
 on:
   workflow_dispatch:
 
 permissions:
-  actions: read
+  actions: write  # cần 'write' để xóa artifacts
   contents: read
 
 jobs:
-  cleanup:
+  delete-artifacts:
     runs-on: ubuntu-latest
     steps:
+      - name: Setup GitHub CLI
+        uses: cli/cli-action@v2
+
       - name: Delete all artifacts
-        uses: geekyeggo/delete-artifact@v2
-        with:
-          age: '0 days'
+        run: |
+          gh api repos/${{ github.repository }}/actions/artifacts | jq -r '.artifacts[].id' | while read id; do
+            echo "Deleting artifact ID $id"
+            gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/$id
+          done
