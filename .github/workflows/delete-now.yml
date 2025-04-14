@@ -1,0 +1,14 @@
+name: Delete artifacts now
+
+on:
+  workflow_dispatch: # Cho phép chạy tay từ GitHub UI
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete all artifacts
+        uses: geekyeggo/delete-artifact@v2
+        with:
+          # Xóa tất cả artifacts cũ hơn 0 ngày = xóa tất cả
+          age: '0 days'
